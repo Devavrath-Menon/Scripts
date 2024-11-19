@@ -1,0 +1,243 @@
+---
+title: "Exercise in Statistics for Bioinformatics"
+output: html_document
+date: "2024-03-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```   
+Q1.A
+Reading in data. 
+```{r}
+# Set the working directory
+setwd("C:/Users/Devavrath/Desktop/Bioinformatics Content/SEM 4/Stats 2024/Stats Assignment 1")
+
+# Load the files
+g1 <- read.csv("genotypes1.csv")
+p1 <- read.csv("phenotype1.csv")
+g2 <- read.csv("genotypes2.csv")
+p2 <- read.csv("phenotype2.csv")
+g3 <- read.csv("genotypes3.csv")
+
+
+```
+
+Q1.A 
+Checking the dimension. For columns, I subtract one to reduce the column that contains labels. 
+```{r}
+data_frames <- list(g1 = g1, g2 = g2, g3 = g3)
+
+for (name in names(data_frames)) {
+  cat('Number of people in data file', name, ':', nrow(data_frames[[name]]), '\n')
+}
+
+
+
+data_frames <- list(g1 = g1, g2 = g2, g3 = g3)
+
+for (name in names(data_frames)) {
+  cat('Number of SNPs in data file', name, ':', ncol(data_frames[[name]]) - 1, '\n')
+}
+
+pheno_data_frame = list(p1 = p1, p2 = p2)
+for (name in names(pheno_data_frame)) {
+  cat('Number of people in data file', name, ':', nrow(pheno_data_frame[[name]]), '\n')
+}
+
+for (name in names(pheno_data_frame)) {
+  cat('Number of phenotype in data file', name, ':', ncol(pheno_data_frame[[name]])-1, '\n')
+}
+
+
+```
+The number of people and SNPs matches the description. 
+
+```{r}
+s1pheno5 = head(p1[, 1], 5)
+s2pheno5 = head(p2[, 1], 5)
+cat('First 5 phenotypes in first study are: ', s1pheno5, '\n')
+
+cat('First 5 phenotypes in second study are: ', s2pheno5, '\n')
+```
+
+
+
+
+Q1.b  For each SNP in Study 1, t a simple linear regression model for BMI against the SNP
+genotype (i.e. 200 separate models each with a single predictor) and record the p-value from
+testing the null hypothesis of no association between the SNP and BMI. Consider only the
+additive model (1 parameter) for each SNP, rather than the general model (2 parameters).
+
+The following code chunk stores all pvalues to pvallm. 
+```{r}
+pvallm = list()
+columnames = colnames(g1)[-1] #stores all colnames for the dataset
+BMI = p1[, 2] 
+for (colname in columnames){
+  lmfit = lm(BMI ~ unlist(g1[colname]), data = g1)
+  p_value <- summary(lmfit)$coefficients[2, "Pr(>|t|)"]
+  pvallm[[colname]] <- p_value
+}
+
+
+```
+Q1.c Draw a Manhattan plot to visualise all of the p-values from these tests on a log10 scale.
+Briefly describe what you conclude from this plot.
+
+```{r}
+library(qqman)
+Pvalue = unlist(pvallm)
+snps = colnames(g1)[-1]
+Chromosome = 1:200
+positon = c(1:200)
+
+#Creating a data frame for the plot
+manhattanplot <- data.frame(SNP = snps, Chromosome = Chromosome,
+    Position = positon,
+    Pvalue = Pvalue  # Use raw p-values here
+)
+
+#Plotting manhattan
+g <- manhattan(manhattanplot, chr = "Chromosome", bp = "Position", p = "Pvalue", main = "Manhattan Plot for Study 1", ylim = c(0, max(-log10(manhattanplot$Pvalue), na.rm = TRUE)))
+
+```
+The above figure shows just after 48 a rise suggesting associated SNP cluster. Rest of the graph lacks signs of associated SNPs.
+
+
+
+
+
+
+Q1.d Which SNP has the smallest p-value? What is the p-value?
+```{r}
+#identifies snp with mininum pvalue
+snp_with_min_pvalue <- names(pvallm)[which.min(unlist(pvallm))] 
+print(snp_with_min_pvalue) #prints the snps name
+print(pvallm[[snp_with_min_pvalue]]) #prints the min pvalue of the snp 
+```
+
+
+
+
+
+
+
+====================================================Q.2=========================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+(a) You decide to combine studies 1 and 2 together. This requires making the phenotype to be
+equivalent. Convert the phenotype from Study 1 to be the same as for Study 2, and then
+combine the two studies by creating a single data frame for the phenotype and one for the
+genotypes.
+
+Creating a new a data frame that combines the data from the 2 studies.
+```{r}
+#Converts the phenotype from both studies to 0,1 format 
+study1value = as.numeric(p1$BMI > 25)
+study2value = as.numeric(unlist(p2$overweight))
+
+#combined phenotype and phenotype data structures
+combinedgeno = rbind(g1, g2)
+combinedpheno = c(study1value, study2value)
+```
+
+(b) For the combined data, test each SNP for association with overweight status and record the
+200 p-values. Again, consider only an additive genetic model.
+```{r}
+pvalcombined = list()
+ccolumnames = colnames(combinedgeno)[-1] #stores all colnames for the dataset
+BMI = combinedpheno
+m = 0
+for (colname in ccolumnames){
+  lmfit = lm(BMI ~ unlist(combinedgeno[colname]), data = combinedgeno)
+  p_value <- summary(lmfit)$coefficients[2, "Pr(>|t|)"]
+  pvalcombined[[colname]] <- p_value
+  m = m + 1
+}
+```
+
+
+(c) Draw a Manhattan plot to visualise the p-values from these tests on a log10 scale. Briefly
+describe what you conclude from this plot.
+```{r}
+CombinedPvalue = unlist(pvalcombined)
+snps = colnames(combinedgeno)[-1]
+positon = c(1:200)
+
+#Creating a data frame for the plot
+manhattanplot <- data.frame(SNP = snps, Chromosome = Chromosome,
+    Position = positon,
+    Pvalue = CombinedPvalue  # Use raw p-values here
+)
+
+#Plotting manhattan
+g <- manhattan(manhattanplot, chr = "Chromosome", bp = "Position", p = "Pvalue", main = "Manhattan Plot for Combined Study", ylim = c(0, max(-log10(manhattanplot$Pvalue), na.rm = TRUE)))
+```
+
+Apart from the peak just before 55, there is another peak around 104 of associated SNPs.
+
+(d) Which SNP has the smallest p-value? What is the p-value?
+```{r}
+snp_with_min_pvalue_combined <- names(CombinedPvalue)[which.min(unlist(CombinedPvalue))] 
+print(snp_with_min_pvalue_combined) #prints the snps name
+print(CombinedPvalue[[snp_with_min_pvalue_combined]])
+```
+(e) i. Report the number of SNPs that are significant using the Bonferroni method to control
+the family-wise error rate at 5% across the 200 tests.
+```{r}
+bonfercorrect = 0.05/m
+bonfersignificant = sum(CombinedPvalue < bonfercorrect)
+bonfersignificant
+```
+
+(e) ii. Report the number of SNPs that are significant using the Benjamini & Hochberg method
+to control the false discovery rate (FDR) at 5% across the 200 tests.
+```{r}
+CombinedPvalueSorted = sort(CombinedPvalue)
+BH.threshold = 0.05 * seq(1, m) / m
+max(which(CombinedPvalueSorted <= BH.threshold))
+```
+(e) iii. Using the Storey method with λ = 0.1, what is the expected number of null SNPs that
+are significant at level α⋆ = 0.001. How many SNPs are observed to be significant at this level? What is the resulting FDR estimate?
+```{r}
+hist(CombinedPvalueSorted)
+
+```
+```{r}
+nsig <- sum(CombinedPvalue < 0.001)
+
+nullfrac <- mean(CombinedPvalueSorted > 0.1) / 0.9
+falsep <- nullfrac * m * 0.001
+FDR <- falsep / nsig
+
+```
+
+(f) Describe how you would report the number of significantly associated SNPs from the asssociation analysis in the combined study. How would you decide which SNPs to report as
+significant and how would you summarise the possibility of error?
+
+==========================================================Q.3======================================================
+
+(a) Identify the SNPs with the 8 smallest p-values from the previous question, and report their
+p-values.
+```{r}
+library(lattice)
+
+
+small8 = head(CombinedPvalueSorted, 8)
+
+M = data.frame(small8)
+plot(M)
+levelplot(cor(M))
+```
